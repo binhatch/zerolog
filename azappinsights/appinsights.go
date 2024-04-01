@@ -58,7 +58,13 @@ func (a *azureApplicationInsightsWriter) Write(p []byte) (n int, err error) {
 	if l, ok := event[zerolog.LevelFieldName].(string); ok {
 		appInsightsLevel = levelToAppInsightsLevel(l)
 	}
-	traceTelemetry := appinsights.NewTraceTelemetry(event[zerolog.MessageFieldName].(string), appInsightsLevel)
+	traceTelemetry := appinsights.NewTraceTelemetry("", appInsightsLevel)
+
+	if event[zerolog.MessageFieldName] != nil {
+		if m, ok := event[zerolog.MessageFieldName].(string); ok {
+			traceTelemetry.Message = m
+		}
+	}
 
 	for key, value := range event {
 		jKey := strings.ToUpper(key)
