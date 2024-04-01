@@ -90,6 +90,8 @@ func (a *azureApplicationInsightsWriter) Write(p []byte) (n int, err error) {
 		}
 	}
 
+	a.telemetryClient.Track(traceTelemetry)
+
 	return lenP, nil
 }
 
