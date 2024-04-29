@@ -10,9 +10,8 @@ import (
 	"github.com/rs/zerolog/diode"
 	"github.com/rs/zerolog/internal/cbor"
 	"github.com/rs/zerolog/log"
-	"strings"
+	"io"
 )
-import "io"
 
 const defaultAppInsightsLevel = contracts.Information
 
@@ -35,7 +34,7 @@ func NewWriter(config Config) io.Writer {
 }
 
 func NewAsyncWriter(config Config) io.WriteCloser {
-	return diode.NewWriter(NewWriter(config), 1024, 0, func(missed int) {
+	return diode.NewWriter(NewWriter(config), 20024, 0, func(missed int) {
 		log.Error().Int("missed", missed).
 			Msg("missed log entries flush to Azure AppInsights")
 	})
@@ -67,8 +66,6 @@ func (a *azureApplicationInsightsWriter) Write(p []byte) (n int, err error) {
 	}
 
 	for key, value := range event {
-		jKey := strings.ToUpper(key)
-
 		switch key {
 		case zerolog.LevelFieldName, zerolog.TimestampFieldName, zerolog.MessageFieldName:
 			continue
@@ -76,18 +73,22 @@ func (a *azureApplicationInsightsWriter) Write(p []byte) (n int, err error) {
 
 		switch v := value.(type) {
 		case string:
-			traceTelemetry.Properties[jKey] = v
+			traceTelemetry.Properties[key] = v
 		case json.Number:
-			traceTelemetry.Properties[jKey] = fmt.Sprint(value)
+			traceTelemetry.Properties[key] = fmt.Sprint(value)
 		default:
 			b, err := zerolog.InterfaceMarshalFunc(value)
 			if err != nil {
-				traceTelemetry.Properties[jKey] = fmt.Sprintf("[error: %v]", err)
+				traceTelemetry.Properties[key] = fmt.Sprintf("[error: %v]", err)
 				traceTelemetry.SeverityLevel = contracts.Critical
 			} else {
-				traceTelemetry.Properties[jKey] = string(b)
+				traceTelemetry.Properties[key] = string(b)
 			}
 		}
+	}
+
+	if t, ok := traceTelemetry.Properties["traceId"]; ok {
+		traceTelemetry.Tags.Operation().SetId(t)
 	}
 
 	a.telemetryClient.Track(traceTelemetry)
