@@ -34,7 +34,7 @@ func NewWriter(config Config) io.Writer {
 }
 
 func NewAsyncWriter(config Config) io.WriteCloser {
-	return diode.NewWriter(NewWriter(config), 20024, 0, func(missed int) {
+	return diode.NewWriter(NewWriter(config), 40024, 0, func(missed int) {
 		log.Error().Int("missed", missed).
 			Msg("missed log entries flush to Azure AppInsights")
 	})
